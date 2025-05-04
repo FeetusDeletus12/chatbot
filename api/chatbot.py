@@ -1,15 +1,13 @@
 # To run this code you need to install the following dependencies:
-# pip install google-genai flask
+# pip install google-genai
 
 import base64
 import os
-from flask import Flask, request, jsonify
 from google import genai
 from google.genai import types
 
-app = Flask(__name__)
 
-def generate(user_input):
+def generate():
     client = genai.Client(
         api_key=os.environ.get("GEMINI_API_KEY"),
     )
@@ -19,7 +17,7 @@ def generate(user_input):
         types.Content(
             role="user",
             parts=[
-                types.Part.from_text(text=user_input),  # Use dynamic user input here
+                types.Part.from_text(text="""INSERT_INPUT_HERE"""),
             ],
         ),
     ]
@@ -77,29 +75,12 @@ Your goal is to be the most useful and adaptable assistant possible, for anythin
         ],
     )
 
-    response_text = ""
     for chunk in client.models.generate_content_stream(
         model=model,
         contents=contents,
         config=generate_content_config,
     ):
-        response_text += chunk.text
-
-    return response_text.strip()
-
-
-@app.route('/chat', methods=['POST'])
-def chat():
-    user_input = request.json.get('message', '')  # Extract message from incoming request
-    
-    if not user_input:
-        return jsonify({'error': 'No message provided'}), 400  # If no message, return error
-
-    # Generate response using AI
-    ai_response = generate(user_input)
-    
-    return jsonify({'response': ai_response})
-
+        print(chunk.text, end="")
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    generate()
