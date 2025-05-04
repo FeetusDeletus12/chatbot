@@ -3,10 +3,20 @@ import os
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
+from flask import Flask, request, jsonify
 
+# Load environment variables
 load_dotenv()
 
-def generate():
+app = Flask(__name__)
+
+@app.route("/api/chat", methods=["POST"])
+def chat():
+    user_input = request.json.get("message")
+    if not user_input:
+        return jsonify({"error": "No message provided"}), 400
+
+    # Initialize the Google GenAI client
     client = genai.Client(
         api_key=os.environ.get("GEMINI_API_KEY"),
     )
@@ -16,7 +26,7 @@ def generate():
         types.Content(
             role="user",
             parts=[
-                types.Part.from_text(text="""INSERT_INPUT_HERE"""),
+                types.Part.from_text(text=user_input),
             ],
         ),
     ]
@@ -74,12 +84,17 @@ Your goal is to be the most useful and adaptable assistant possible, for anythin
         ],
     )
 
-    for chunk in client.models.generate_content_stream(
-        model=model,
-        contents=contents,
-        config=generate_content_config,
-    ):
-        print(chunk.text, end="")
+    try:
+        response = ""
+        for chunk in client.models.generate_content_stream(
+            model=model,
+            contents=contents,
+            config=generate_content_config,
+        ):
+            response += chunk.text
+        return jsonify({"response": response})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    generate()
+    app.run(host="0.0.0.0", port=5000)
