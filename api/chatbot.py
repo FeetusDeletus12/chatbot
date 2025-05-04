@@ -1,59 +1,54 @@
-# /api/chatbot.py
+# To run this code you need to install the following dependencies:
+# pip install google-genai flask
 
+import base64
 import os
+from flask import Flask, request, jsonify
 from google import genai
 from google.genai import types
-from dotenv import load_dotenv
-from flask import jsonify, request
 
-load_dotenv()
+app = Flask(__name__)
 
-def handler(req):
-    # Setup the client with API key from the environment variable
+def generate(user_input):
     client = genai.Client(
         api_key=os.environ.get("GEMINI_API_KEY"),
     )
-
-    # Get the user input from the request JSON
-    user_input = req.json.get("input")
-
-    # If there's no input, return an error message
-    if not user_input:
-        return jsonify({"error": "No input provided."}), 400
 
     model = "gemini-2.0-flash"
     contents = [
         types.Content(
             role="user",
-            parts=[types.Part.from_text(text=user_input)],
+            parts=[
+                types.Part.from_text(text=user_input),  # Use dynamic user input here
+            ],
         ),
     ]
-    tools = [types.Tool(google_search=types.GoogleSearch())]
-
+    tools = [
+        types.Tool(google_search=types.GoogleSearch()),
+    ]
     generate_content_config = types.GenerateContentConfig(
         safety_settings=[
             types.SafetySetting(
                 category="HARM_CATEGORY_HARASSMENT",
-                threshold="BLOCK_NONE",
+                threshold="BLOCK_NONE",  # Block none
             ),
             types.SafetySetting(
                 category="HARM_CATEGORY_HATE_SPEECH",
-                threshold="BLOCK_ONLY_HIGH",
+                threshold="BLOCK_ONLY_HIGH",  # Block few
             ),
             types.SafetySetting(
                 category="HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                threshold="BLOCK_LOW_AND_ABOVE",
+                threshold="BLOCK_LOW_AND_ABOVE",  # Block most
             ),
             types.SafetySetting(
                 category="HARM_CATEGORY_DANGEROUS_CONTENT",
-                threshold="BLOCK_NONE",
+                threshold="BLOCK_NONE",  # Block none
             ),
         ],
         tools=tools,
         response_mime_type="text/plain",
         system_instruction=[
-            types.Part.from_text(
-                text="""You are a highly intelligent, all-purpose AI assistant.
+            types.Part.from_text(text="""You are a highly intelligent, all-purpose AI assistant.
 
 Your personality is helpful, respectful, and adaptive. You assist with tasks across all areas: general knowledge, education, mathematics, programming, design, personal productivity, creative writing, audio-visual media, life advice, technical troubleshooting, and more.
 
@@ -78,22 +73,33 @@ You are capable of working with APIs, files, voice input, images, videos, and li
 
 Do not answer with disclaimers unless asked about safety or legality.
 
-Your goal is to be the most useful and adaptable assistant possible, for anything the user needs."""
-                
-            ),
+Your goal is to be the most useful and adaptable assistant possible, for anything the user needs."""),
         ],
     )
 
     response_text = ""
-    try:
-        for chunk in client.models.generate_content_stream(
-            model=model,
-            contents=contents,
-            config=generate_content_config,
-        ):
-            response_text += chunk.text
+    for chunk in client.models.generate_content_stream(
+        model=model,
+        contents=contents,
+        config=generate_content_config,
+    ):
+        response_text += chunk.text
 
-        return jsonify({"response": response_text})
+    return response_text.strip()
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+
+@app.route('/chat', methods=['POST'])
+def chat():
+    user_input = request.json.get('message', '')  # Extract message from incoming request
+    
+    if not user_input:
+        return jsonify({'error': 'No message provided'}), 400  # If no message, return error
+
+    # Generate response using AI
+    ai_response = generate(user_input)
+    
+    return jsonify({'response': ai_response})
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
