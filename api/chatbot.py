@@ -1,22 +1,25 @@
 # /api/chatbot.py
 
-import base64
 import os
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
-from flask import jsonify
+from flask import jsonify, request
 
 load_dotenv()
 
-def handler(request):
-    # Setup the client
+def handler(req):
+    # Setup the client with API key from the environment variable
     client = genai.Client(
         api_key=os.environ.get("GEMINI_API_KEY"),
     )
 
-    # Get the input from the frontend (text submitted by the user)
-    user_input = request.json.get("input")  # Assuming frontend sends JSON
+    # Get the user input from the request JSON
+    user_input = req.json.get("input")
+
+    # If there's no input, return an error message
+    if not user_input:
+        return jsonify({"error": "No input provided."}), 400
 
     model = "gemini-2.0-flash"
     contents = [
@@ -76,9 +79,21 @@ You are capable of working with APIs, files, voice input, images, videos, and li
 Do not answer with disclaimers unless asked about safety or legality.
 
 Your goal is to be the most useful and adaptable assistant possible, for anything the user needs."""
+                
             ),
         ],
     )
 
-    response = client.models.generate_content(model=model, contents=contents, config=generate_content_config)
-    return jsonify({"response": response.text})
+    response_text = ""
+    try:
+        for chunk in client.models.generate_content_stream(
+            model=model,
+            contents=contents,
+            config=generate_content_config,
+        ):
+            response_text += chunk.text
+
+        return jsonify({"response": response_text})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
