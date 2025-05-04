@@ -1,17 +1,17 @@
-async function sendPrompt() {
-  const prompt = document.getElementById("prompt").value;
-  const responseEl = document.getElementById("response");
+// /public/script.js
 
-  responseEl.textContent = "Thinking...";
+document.getElementById("submitButton").addEventListener("click", async () => {
+    const userInput = document.getElementById("userInput").value;
+    const responseContainer = document.getElementById("response");
 
-  const res = await fetch("/api/chat", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ prompt })
-  });
+    const response = await fetch('/api/chatbot', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ input: userInput }),
+    });
 
-  const data = await res.text();
-  responseEl.textContent = data;
-}
+    const data = await response.json();
+    responseContainer.textContent = data.response || "No response from AI.";
+});
